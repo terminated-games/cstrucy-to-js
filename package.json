@@ -1,0 +1,24 @@
+{
+  "name": "cstructtojs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "concentrate": "^0.2.3",
+    "dissolve": "^0.3.3",
+    "hexy": "^0.3.0",
+    "js-beautify": "^1.10.0",
+    "lex": "^1.7.9",
+    "literal-require": "^1.0.5",
+    "uuid": "^3.3.2"
+  },
+  "namespace": {
+    "@application": "${ process.cwd() }",
+    "@test": "${ process.cwd() }/test"
+  }
+}
