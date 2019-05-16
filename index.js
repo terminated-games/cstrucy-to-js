@@ -270,6 +270,7 @@ module.exports = (file_path, save = true) => {
             return this
           },
           unpack: async function unpack_${result.name}() {
+            let data = {}
             ${o.result}
             return this
           },
@@ -293,7 +294,7 @@ module.exports = (file_path, save = true) => {
           o.struct.type = TYPE.STRUCT
 
           o.struct.pack += `}${ENDL}`
-          o.struct.unpack += `}${ENDL}})${ENDL}`
+          o.struct.unpack += `}${ENDL}`
           break
         }
 
@@ -319,10 +320,7 @@ module.exports = (file_path, save = true) => {
         o.struct.type = TYPE.SWITCH
 
         o.struct.pack += `switch (${result.argument}) {${ENDL}`
-        o.struct.unpack += `${o.struct.begin ? 'this' : ''}.tap(() => {
-          let data = this.vars
-          console.log('data:', data)
-          switch (${result.argument}) {${ENDL}`
+        o.struct.unpack += `switch (${result.argument}) {${ENDL}`
         o.struct.begin = !o.struct.begin
         break
 
@@ -346,6 +344,10 @@ module.exports = (file_path, save = true) => {
         case TYPE.DEFINE:
 
         o.struct.unpack += `
+        data = await this.getVars()
+
+        console.log('data:', data)
+
         if ( ${result.variable} === undefined ) { ${result.variable} = ${result.expression} }${ENDL}
         `
 

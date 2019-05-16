@@ -73,6 +73,27 @@ class Dissolver extends Dissolve {
 
     return this
   }
+
+  getVars() {
+    let resolve_callback
+    let result
+
+    let callback = function () {
+      console.log('this data:', this.vars)
+
+      if (resolve_callback) {
+        resolve_callback(this.vars)
+      } else {
+        result = this.vars
+      }
+    }
+
+    this.tap(callback)
+
+    return new Promise((resolve, reject) => {
+      resolve({})
+    })
+  }
 }
 
 Parser(Path.literal('@test/test.h'))

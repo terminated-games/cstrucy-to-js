@@ -8,6 +8,7 @@ module.exports.test = {
         return this
     },
     unpack: async function unpack_test() {
+        let data = {}
         this.int32('test')
 
         return this
@@ -35,30 +36,29 @@ module.exports.inventory_item = {
         return this
     },
     unpack: async function unpack_inventory_item() {
+        let data = {}
         this.int32('id')
             .int32('x')
             .int32('y')
             .struct('hello')
 
-        let data = this.vars
-        console.log('dataa:', this.vars)
+        data = await this.getVars()
+
+        console.log('data:', data)
+
         if (data.type === undefined) {
             data.type = await ITEM.getItemType(data.id)
         }
 
-        this.tap(() => {
-            let data = this.vars
-            console.log('data:', data)
-            switch (data.type) {
-                case ITEM.PET:
-                    this.int32('growth')
-                    break;
-                default:
-                    this.int16('enchant')
-                        .int16('combine')
-                    break;
-            }
-        })
+        switch (data.type) {
+            case ITEM.PET:
+                this.int32('growth')
+                break;
+            default:
+                this.int16('enchant')
+                    .int16('combine')
+                break;
+        }
         this.int32('test')
 
         return this
@@ -74,6 +74,7 @@ module.exports.character = {
         return this
     },
     unpack: async function unpack_character() {
+        let data = {}
         this
         return this
     },
