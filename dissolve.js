@@ -37,6 +37,12 @@ const TYPE = {
   RESULT: 25
 }
 
+const TASK = {
+  END: 0,
+  START: 1,
+  INDEX: 0
+}
+
 class Dissolve extends Transform {
   constructor(options = {}) {
 
@@ -49,6 +55,8 @@ class Dissolve extends Transform {
     this.vars = {}
     this.queue = []
     this.buffer = new BufferList()
+
+    this.route = TASK.END
   }
 
   async execute() {
@@ -62,22 +70,29 @@ class Dissolve extends Transform {
       case TYPE.LOOP:
       if ( await Promise.resolve(fn.call(this)) ) {
         this.queue.push(task)
+        console.log('pushed loop task')
       }
       break
 
       case TYPE.TAP: {
-      this.tmp = this.vars
-      this.vars = {}
+        console.log(this.queue)
 
-      await Promise.resolve(fn.call(this))
+        if (task.name) {
 
-      if (task.name) {
-        this.tmp[task.name] = this.vars
-        this.vars = this.tmp
-      } else {
-        this.vars = vars
-      }
+        }
 
+        let tmp = new Dissolve()
+
+        await Promise.resolve(fn.call(tmp))
+
+        this.do({
+          type: TYPE.RESULT,
+          fn: function result() {
+            console.log(this.vars)
+          }
+        }, TASK.START)
+
+        this.do(tmp.queue, TASK.START)
       } break
 
       case TYPE.S8:
@@ -136,8 +151,31 @@ class Dissolve extends Transform {
     .catch(resolve)
   }
 
+  do(task, route = null) {
+    switch (route || this.route) {
+      case TASK.END: {
+        if (Array.isArray(task)) {
+          this.queue.push(...task)
+        } else {
+          this.queue.push(task)
+        }
+      } break
+
+      case TASK.START: {
+        if (Array.isArray(task)) {
+          this.queue.unshift(...task)
+        } else {
+          this.queue.unshift(task)
+        }
+      } break
+
+      // case TASK.INDEX:
+      // return this.queue.splice(0, 0, task)
+    }
+  }
+
   s32(name) {
-    this.queue.push({
+    this.do({
       type: TYPE.S32,
       fn: this.buffer.readInt32LE,
       length: 4,
@@ -148,7 +186,7 @@ class Dissolve extends Transform {
   }
 
   getVars() {
-      
+
   }
 
   tap() {
@@ -156,7 +194,7 @@ class Dissolve extends Transform {
       case 1: {
         let [fn] = arguments
 
-        this.queue.push({
+        this.do({
           type: TYPE.TAP,
           fn
         })
@@ -165,7 +203,7 @@ class Dissolve extends Transform {
       case 2: {
         let [name, fn] = arguments
 
-        this.queue.push({
+        this.do({
           type: TYPE.TAP,
           fn,
           name
@@ -184,7 +222,7 @@ class Dissolve extends Transform {
       case 1: {
         let [fn] = arguments
 
-        this.queue.push({
+        this.do({
           type: TYPE.LOOP,
           fn
         })
@@ -193,6 +231,8 @@ class Dissolve extends Transform {
       default:
       throw new Error('Loop requires a function in argument 1')
     }
+
+    return this
   }
 
   s32le() {
@@ -200,7 +240,7 @@ class Dissolve extends Transform {
   }
 
   u32(name) {
-    this.queue.push({
+    this.do({
       type: TYPE.U32,
       fn: this.buffer.readUInt32LE,
       length: 4,
@@ -216,16 +256,29 @@ let compiler = new Dissolve
 
 let index = 0
 
-compiler.loop(() => {
-  compiler.s32('test').s32('test2').tap(() => {
-    console.log('pushing result')
+compiler.loop(function (){
+  this.s32('test').s32('test2')
+  .tap('header', function () {
+    this.s32('lolek')
+    this.s32('lolek2')
+    this.s32('lolek3')
+    this.s32('lolek4')
 
-    compiler.push(compiler.vars)
-    compiler.vars = {}
+    this.push(this.vars)
+    this.vars = {}
   })
+
+  // compiler.s32('test').s32('test2').tap('header2', () => {
+  //   console.log('pushing result')
+
+  //   compiler.s32('tap1').s32('tap2').tap('header', () => {
+
+  //   })
+  // })
 
   return true
 })
+
 
 compiler.on('readable', () => {
   let result
