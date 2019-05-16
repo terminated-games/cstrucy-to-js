@@ -1,30 +1,45 @@
 const { Transform } = require('stream')
+const BufferList = require('bl')
 
 class Dissolve extends Transform {
-  constructor() {
-    super()
+  constructor(options = {}) {
+
+    if (options.objectMode === undefined) {
+      options.objectMode = true
+    }
+
+    super(options)
 
     this.vars = {}
     this.queue = []
+    this.buffer = new BufferList()
   }
 
   _transform(chunk, encoding, resolve) {
-    console.log(chunk)
-  }
+    this.buffer.append(chunk)
 
-  tap() {
+    // console.log(this.buffer.length)
 
-  }
+    // this.push({})
+    // this.push(null)
 
-  loop() {
-
+    resolve()
   }
 }
+
+
 
 module.exports = Dissolve
 
 
 let compiler = new Dissolve
+
+compiler.loop(() => {
+  compiler.s32('test').tap(() => {
+    compiler.push(compiler.vars)
+    compiler.vars = {}
+  })
+})
 
 compiler.on('readable', () => {
   let result
@@ -34,4 +49,17 @@ compiler.on('readable', () => {
   }
 })
 
-compiler.write(Buffer.alloc(100))
+compiler.on('end', () => {
+  console.log('dissolve ended')
+})
+
+compiler.write(Buffer.alloc(4096))
+compiler.write(Buffer.alloc(4096))
+compiler.write(Buffer.alloc(4096))
+compiler.write(Buffer.alloc(4096))
+compiler.write(Buffer.alloc(4096))
+compiler.write(Buffer.alloc(4096))
+compiler.write(Buffer.alloc(4096))
+compiler.write(Buffer.alloc(4096))
+compiler.write(Buffer.alloc(4096))
+compiler.write(Buffer.alloc(4096))

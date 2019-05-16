@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bl": "^3.0.0",
     "concentrate": "^0.2.3",
     "dissolve": "^0.3.3",
     "hexy": "^0.3.0",
