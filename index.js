@@ -234,9 +234,6 @@ module.exports = (file_path, save = true) => {
     pack: '',
     unpack: '',
     begin: true,
-    has: {
-      member: false
-    },
     type: TYPE.NULL,
     data_required: false
   }
@@ -261,7 +258,6 @@ module.exports = (file_path, save = true) => {
         
         o.result = uuid.v4()
         o.struct.begin = true
-        o.struct.has.member = false
 
         o.module += `
         module.exports.${result.name} = {
@@ -270,7 +266,6 @@ module.exports = (file_path, save = true) => {
             return this
           },
           unpack: async function unpack_${result.name}() {
-            let data = {}
             ${o.result}
             return this
           },
@@ -294,7 +289,7 @@ module.exports = (file_path, save = true) => {
           o.struct.type = TYPE.STRUCT
 
           o.struct.pack += `}${ENDL}`
-          o.struct.unpack += `}${ENDL}`
+          o.struct.unpack += `}${ENDL}})${ENDL}`
           break
         }
 
@@ -312,16 +307,13 @@ module.exports = (file_path, save = true) => {
 
         o.struct.pack += member.pack()
         o.struct.unpack += member.unpack()
-
-        o.struct.has.member = true
         break
 
         case TYPE.SWITCH:
         o.struct.type = TYPE.SWITCH
 
         o.struct.pack += `switch (${result.argument}) {${ENDL}`
-        o.struct.unpack += `switch (${result.argument}) {${ENDL}`
-        o.struct.begin = !o.struct.begin
+        o.struct.unpack += `${o.struct.begin ? `${ENDL}this` : ''}.tap(async function() {${ENDL}let data = this.vars${ENDL}switch (${result.argument}) {${ENDL}`
         break
 
         case TYPE.SWITCH_CASE:
@@ -344,16 +336,11 @@ module.exports = (file_path, save = true) => {
         case TYPE.DEFINE:
 
         o.struct.unpack += `
-        data = await this.getVars()
-
-        console.log('data:', data)
-
-        if ( ${result.variable} === undefined ) { ${result.variable} = ${result.expression} }${ENDL}
+        ${o.struct.begin ? `${ENDL}this` : ''}.tap(async function() {
+          let data = this.vars
+          if ( ${result.variable} === undefined ) { ${result.variable} = ${result.expression} }
+        })
         `
-
-        if (o.struct.has.member) {
-          o.struct.begin = true
-        }
         break
       }
 

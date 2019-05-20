@@ -11,36 +11,40 @@ const TYPE = {
   S8BE: 5,
   S16BE: 6,
   S32BE: 7,
-  S64: 20,
-  S64BE: 21,
+  S64: 8,
+  S64BE: 9,
 
-  U8: 8,
-  U16: 9,
-  U32: 10,
-  U8BE: 11,
-  U16BE: 12,
-  U32BE: 13,
-  U64: 22,
-  U64BE: 23,
+  U8: 10,
+  U16: 11,
+  U32: 12,
+  U8BE: 13,
+  U16BE: 14,
+  U32BE: 15,
+  U64: 16,
+  U64BE: 17,
 
-  STRING: 14,
-  BUFFER: 15,
+  STRING: 18,
+  BUFFER: 19,
 
-  FLOAT: 16,
-  FLOATBE: 17,
+  FLOAT: 20,
+  FLOATBE: 21,
 
-  DOUBLE: 18,
-  DOUBLEBE: 19,
+  DOUBLE: 22,
+  DOUBLEBE: 23,
 
   UNDEFINED: 24,
 
-  RESULT: 25
+  RESULT: 25,
+  PACK: 26,
+
+  // TODO: Consider supporting array type
+  // ARRAY: 27
 }
 
 const TASK = {
   END: 0,
   START: 1,
-  INDEX: 0
+  INDEX: 2
 }
 
 class Dissolve extends Transform {
@@ -53,10 +57,12 @@ class Dissolve extends Transform {
     super(options)
 
     this.vars = {}
+
     this.queue = []
     this.buffer = new BufferList()
 
     this.route = TASK.END
+    this.index = 0
   }
 
   async execute() {
@@ -68,32 +74,47 @@ class Dissolve extends Transform {
 
     switch (task.type) {
       case TYPE.LOOP:
-      if ( await Promise.resolve(fn.call(this)) ) {
-        this.queue.push(task)
-        console.log('pushed loop task')
+      this.route = TASK.INDEX
+      this.index = 0
+
+      if (await Promise.resolve(fn.call(this))) {
+        this.do(task)
       }
+
+      this.route = TASK.END
       break
 
-      case TYPE.TAP: {
-        console.log(this.queue)
+      case TYPE.PACK:
+      this.vars = task.vars[task.name] = {}
+      break
 
-        if (task.name) {
+      case TYPE.RESULT:
+      this.vars = task.vars
+      break
 
-        }
+      case TYPE.TAP:
+      this.index = 0
+      this.route = TASK.INDEX
 
-        let tmp = new Dissolve()
+      if (task.name) {
+        this.do({
+          type: TYPE.PACK,
+          vars: this.vars,
+          name: task.name
+        })
+      }
 
-        await Promise.resolve(fn.call(tmp))
-
+      await Promise.resolve(fn.call(this))
+      
+      if (task.name) {
         this.do({
           type: TYPE.RESULT,
-          fn: function result() {
-            console.log(this.vars)
-          }
-        }, TASK.START)
+          vars: this.vars
+        })
+      }
 
-        this.do(tmp.queue, TASK.START)
-      } break
+      this.route = TASK.END
+      break
 
       case TYPE.S8:
       case TYPE.S16:
@@ -119,7 +140,7 @@ class Dissolve extends Transform {
       case TYPE.DOUBLEBE:
 
       if (task.length > this.buffer.length) {
-        return this.queue.unshift(task)
+        return this.do(task, TASK.START)
       }
 
       this.vars[task.name] = await Promise.resolve(fn.call(this.buffer, 0))
@@ -136,8 +157,7 @@ class Dissolve extends Transform {
       break
 
       default:
-      await Promise.resolve(fn.call(this))
-      break
+      throw new Error(`Unhandled task type: ${task.type}`)
     }
 
     await this.execute()
@@ -151,26 +171,16 @@ class Dissolve extends Transform {
     .catch(resolve)
   }
 
-  do(task, route = null) {
+  do(task, route) {
     switch (route || this.route) {
-      case TASK.END: {
-        if (Array.isArray(task)) {
-          this.queue.push(...task)
-        } else {
-          this.queue.push(task)
-        }
-      } break
+      case TASK.END:
+      return this.queue.push(task)
 
-      case TASK.START: {
-        if (Array.isArray(task)) {
-          this.queue.unshift(...task)
-        } else {
-          this.queue.unshift(task)
-        }
-      } break
+      case TASK.START:
+      return this.queue.unshift(task)
 
-      // case TASK.INDEX:
-      // return this.queue.splice(0, 0, task)
+      case TASK.INDEX:
+      return this.queue.splice(this.index++, 0, task)
     }
   }
 
@@ -183,10 +193,6 @@ class Dissolve extends Transform {
     })
 
     return this
-  }
-
-  getVars() {
-
   }
 
   tap() {
@@ -235,6 +241,36 @@ class Dissolve extends Transform {
     return this
   }
 
+  // array() {
+  //   switch (arguments.length) {
+  //     case 2:
+  //     let [name, fn] = arguments
+
+  //     this.do({
+  //       type: TYPE.ARRAY,
+  //       index: 0,
+  //       fn,
+  //       name
+  //     })
+  //     break
+
+  //     case 3:
+  //     let [name, length, fn] = arguments
+
+  //     this.do({
+  //       type: TYPE.ARRAY,
+  //       index: 0,
+  //       length,
+  //       fn,
+  //       name
+  //     })
+  //     break
+
+  //     default:
+  //     throw new Error(`Array requires name, [length] and function`)      
+  //   }
+  // }
+
   s32le() {
     return this.s32(...arguments)
   }
@@ -254,27 +290,59 @@ module.exports = Dissolve
 
 let compiler = new Dissolve
 
-let index = 0
+// let index = 0
+
+async function getType(id) {
+  return id
+}
 
 compiler.loop(function (){
-  this.s32('test').s32('test2')
-  .tap('header', function () {
+  this.tap('header', async function () {
     this.s32('lolek')
     this.s32('lolek2')
     this.s32('lolek3')
-    this.s32('lolek4')
 
+    this.tap(async () => {
+      let data = this.vars
+      if (data.type === undefined) {
+        data.type = await getType(data.lolek)
+      }
+    })
+
+    this.tap(() => {
+      switch (this.vars.type) {
+        case 0:
+        this.s32('world')
+        break
+
+        case 1:
+        this.s32('hello')
+        this.tap('mięsny', async function () {
+          this.s32('kabanos')
+        })
+        break
+      }
+    })
+
+    let index = 0
+    this.loop(() => {
+      if (++index === 10) return false
+
+      console.log('index:', index)
+    
+      this.tap(() => {
+        console.log('push to array item')
+      })
+
+      return true
+    })
+
+    this.s32('lolek4')
+  })
+  .tap(() => {
     this.push(this.vars)
     this.vars = {}
   })
-
-  // compiler.s32('test').s32('test2').tap('header2', () => {
-  //   console.log('pushing result')
-
-  //   compiler.s32('tap1').s32('tap2').tap('header', () => {
-
-  //   })
-  // })
 
   return true
 })
@@ -295,6 +363,9 @@ compiler.on('end', () => {
 // compiler.write(Buffer.alloc(4096))
 
 setInterval(() => {
-  console.log('writing:', 5)
-  compiler.write(Buffer.alloc(20))
+  console.log('writing:', 20)
+  let test = Buffer.alloc(50)
+  test.writeInt32LE(Math.random() > 0.5 ? 1 : 0)
+
+  compiler.write(test)
 }, 3000)

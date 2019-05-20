@@ -9,8 +9,6 @@ struct inventory_item {
   int x;
   int y;
 
-  struct test hello;
-
   #define data.type = await ITEM.getItemType(data.id)
 
   switch (data.type) {

@@ -8,7 +8,6 @@ module.exports.test = {
         return this
     },
     unpack: async function unpack_test() {
-        let data = {}
         this.int32('test')
 
         return this
@@ -21,7 +20,6 @@ module.exports.inventory_item = {
         this.int32(data.id)
             .int32(data.x)
             .int32(data.y)
-            .struct(data.hello)
         switch (data.type) {
             case ITEM.PET:
                 this.int32(data.growth)
@@ -36,29 +34,28 @@ module.exports.inventory_item = {
         return this
     },
     unpack: async function unpack_inventory_item() {
-        let data = {}
         this.int32('id')
             .int32('x')
             .int32('y')
-            .struct('hello')
 
-        data = await this.getVars()
-
-        console.log('data:', data)
-
-        if (data.type === undefined) {
-            data.type = await ITEM.getItemType(data.id)
-        }
-
-        switch (data.type) {
-            case ITEM.PET:
-                this.int32('growth')
-                break;
-            default:
-                this.int16('enchant')
-                    .int16('combine')
-                break;
-        }
+            .tap(async function() {
+                let data = this.vars
+                if (data.type === undefined) {
+                    data.type = await ITEM.getItemType(data.id)
+                }
+            })
+            .tap(async function() {
+                let data = this.vars
+                switch (data.type) {
+                    case ITEM.PET:
+                        this.int32('growth')
+                        break;
+                    default:
+                        this.int16('enchant')
+                            .int16('combine')
+                        break;
+                }
+            })
         this.int32('test')
 
         return this
@@ -74,7 +71,6 @@ module.exports.character = {
         return this
     },
     unpack: async function unpack_character() {
-        let data = {}
         this
         return this
     },
